@@ -1,3 +1,14 @@
+const flexConfig = {
+  authBaseUrl: import.meta.env.VITE_FLEX_AUTH_BASE_URL,
+  apiAudience: import.meta.env.VITE_FLEX_API_AUDIENCE,
+  assetBaseUrl: import.meta.env.VITE_FLEX_ASSET_BASE_URL,
+  clientId: import.meta.env.VITE_FLEX_CLIENT_ID,
+  clientSecret: import.meta.env.VITE_FLEX_CLIENT_SECRET,
+  merchantCode: import.meta.env.VITE_FLEX_MERCHANT_CODE,
+  tokenScope: import.meta.env.VITE_FLEX_TOKEN_SCOPE,
+  nonceScope: import.meta.env.VITE_FLEX_NONCE_SCOPE,
+}
+
 const flexMethodCodes = {
   Tarjeta: 'CARD',
   Yape: 'YAPE',
@@ -21,6 +32,63 @@ async function parseJsonResponse(response) {
   } catch {
     return { raw: text }
   }
+}
+
+function validateFlexConfig() {
+  const missing = Object.entries(flexConfig)
+    .filter(([, value]) => !value)
+    .map(([name]) => name)
+
+  if (missing.length) {
+    throw new Error(`Faltan variables de configuracion Flex: ${missing.join(', ')}`)
+  }
+}
+
+async function requestAccessToken() {
+  const response = await fetch(`${flexConfig.authBaseUrl.replace(/\/$/, '')}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'authorize',
+      grant_type: 'client_credentials',
+      audience: flexConfig.apiAudience,
+      client_id: flexConfig.clientId,
+      client_secret: flexConfig.clientSecret,
+      scope: flexConfig.tokenScope,
+    }),
+  })
+
+  const data = await parseJsonResponse(response)
+  if (!response.ok || !data.access_token) {
+    console.error('Error obteniendo token Flex', data)
+    throw new Error('No se pudo autenticar con Flex')
+  }
+
+  return data.access_token
+}
+
+async function requestNonce(accessToken) {
+  const response = await fetch(`${flexConfig.authBaseUrl.replace(/\/$/, '')}/nonce`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      action: 'create.nonce',
+      audience: flexConfig.apiAudience,
+      client_id: flexConfig.clientId,
+      scope: flexConfig.nonceScope,
+    }),
+  })
+
+  const data = await parseJsonResponse(response)
+  if (!response.ok || !data.nonce) {
+    console.error('Error obteniendo nonce Flex', data)
+    throw new Error('No se pudo crear la sesion Flex')
+  }
+
+  return data.nonce
 }
 
 let flexAssetsPromise
@@ -108,21 +176,12 @@ export function getFlexMethodCodes({ layout, enabledMethods, selectedMethod }) {
 }
 
 export async function createFlexSession() {
-  const apiBaseUrl = String(import.meta.env.VITE_FLEX_API_BASE_URL || '').replace(/\/$/, '')
-  const response = await fetch(`${apiBaseUrl}/api/flex/session`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  })
-  const data = await parseJsonResponse(response)
+  validateFlexConfig()
+  const accessToken = await requestAccessToken()
+  const nonce = await requestNonce(accessToken)
+  await loadFlexAssets(flexConfig.assetBaseUrl)
 
-  if (!response.ok || !data.nonce || !data.merchantCode) {
-    console.error('Error preparando la sesion Flex', data)
-    throw new Error(data.error || 'No se pudo preparar la sesion Flex')
-  }
-
-  await loadFlexAssets(data.assetBaseUrl)
-
-  return { nonce: data.nonce, merchantCode: data.merchantCode }
+  return { nonce, merchantCode: flexConfig.merchantCode }
 }
 
 export function buildFlexPayload({

@@ -30,7 +30,14 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE_PATH: /demo_flex/
-          VITE_FLEX_API_BASE_URL: ${{ vars.FLEX_API_BASE_URL }}
+          VITE_FLEX_API_AUDIENCE: ${{ secrets.FLEX_API_AUDIENCE }}
+          VITE_FLEX_ASSET_BASE_URL: ${{ secrets.FLEX_ASSET_BASE_URL }}
+          VITE_FLEX_AUTH_BASE_URL: ${{ secrets.FLEX_AUTH_BASE_URL }}
+          VITE_FLEX_CLIENT_ID: ${{ secrets.FLEX_CLIENT_ID }}
+          VITE_FLEX_CLIENT_SECRET: ${{ secrets.FLEX_CLIENT_SECRET }}
+          VITE_FLEX_MERCHANT_CODE: ${{ secrets.FLEX_MERCHANT_CODE }}
+          VITE_FLEX_NONCE_SCOPE: ${{ secrets.FLEX_NONCE_SCOPE }}
+          VITE_FLEX_TOKEN_SCOPE: ${{ secrets.FLEX_TOKEN_SCOPE }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
