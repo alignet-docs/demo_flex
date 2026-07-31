@@ -108,7 +108,8 @@ export function getFlexMethodCodes({ layout, enabledMethods, selectedMethod }) {
 }
 
 export async function createFlexSession() {
-  const response = await fetch('/api/flex/session', {
+  const apiBaseUrl = String(import.meta.env.VITE_FLEX_API_BASE_URL || '').replace(/\/$/, '')
+  const response = await fetch(`${apiBaseUrl}/api/flex/session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   })
